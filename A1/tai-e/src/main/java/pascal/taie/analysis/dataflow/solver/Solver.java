@@ -81,7 +81,18 @@ public abstract class Solver<Node, Fact> {
     }
 
     protected void initializeBackward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
-        // TODO - finish me
+        /*
+         TODO - finish me
+         这里结果会从cfg中存储在result,所以操作的最终实现需要result
+         首先设置 IN[exit] = 0
+        */
+        result.setInFact(cfg.getExit(),analysis.newBoundaryFact(cfg));
+        // 遍历所有的节点,设置所有的IN[B]=0, (OUT[B]=0?这是为了定义还是初始化?--->应该是为了初始化)
+        for(Node node: cfg.getNodes()){
+            if(cfg.isExit(node)) continue;
+            result.setInFact(node, analysis.newInitialFact());
+            result.setOutFact(node, analysis.newInitialFact());
+        }
     }
 
     /**

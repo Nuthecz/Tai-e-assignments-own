@@ -40,5 +40,23 @@ class IterativeSolver<Node, Fact> extends Solver<Node, Fact> {
     @Override
     protected void doSolveBackward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         // TODO - finish me
+        // 设置中止循环: 到达不动点
+        boolean flag = true;
+        while(flag){
+            flag = false;
+            // 循环遍历所有的 Basic Block
+            for(Node BasicBlock: cfg.getNodes()){
+                // 跳过EXIT BB
+                if(cfg.isExit(BasicBlock)) continue;
+                // 获得当前 BB 的所有前驱 BB, 之后进行 Union
+                for(Node SuccBlock: cfg.getSuccsOf(BasicBlock)){
+                    analysis.meetInto(result.getInFact(SuccBlock), result.getOutFact(BasicBlock));
+                }
+                // Transfer Function的实现, 同时完成是否达到不动点的判断
+                if(analysis.transferNode(BasicBlock,result.getInFact(BasicBlock),result.getOutFact(BasicBlock))){
+                    flag = true;
+                }
+            }
+        }
     }
 }
