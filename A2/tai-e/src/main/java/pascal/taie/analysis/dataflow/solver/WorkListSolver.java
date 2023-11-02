@@ -23,8 +23,12 @@
 package pascal.taie.analysis.dataflow.solver;
 
 import pascal.taie.analysis.dataflow.analysis.DataflowAnalysis;
+import pascal.taie.analysis.dataflow.analysis.constprop.CPFact;
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
 import pascal.taie.analysis.graph.cfg.CFG;
+
+import java.util.ArrayDeque;
+import java.util.Queue;
 
 class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
 
@@ -35,6 +39,33 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
     @Override
     protected void doSolveForward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         // TODO - finish me
+        // 构造 WorkList 队列, 同时在构造中即可实现对于所有 BB 的添加, 使用队列保证从前往后
+        Queue<Node> WorkList = new ArrayDeque<>(cfg.getNodes());
+//        for (Node node:cfg) {
+//            WorkList.add(node);
+//        }
+
+        while(!WorkList.isEmpty()){
+            // 返回队列的最前端
+            Node BasicNode = WorkList.poll();
+            Fact in = result.getInFact(BasicNode);
+            Fact out = result.getOutFact(BasicNode);
+
+
+            // 实现 meetInto 和 transferNode 的迭代过程
+            for(Node PreNode: cfg.getPredsOf(BasicNode)){
+                analysis.meetInto(result.getOutFact(PreNode), in);
+            }
+
+            // 这里通过 transferNode 的判断, 来简单处理 old_out 与 当前 out 是否相同, 进而判断是否添加前驱节点
+            if(!analysis.transferNode(BasicNode, in, out)){
+                for(Node SucNode: cfg.getSuccsOf(BasicNode)){
+                    if(!WorkList.contains(SucNode))
+                        WorkList.add(SucNode);
+                }
+            }
+        }
+
     }
 
     @Override

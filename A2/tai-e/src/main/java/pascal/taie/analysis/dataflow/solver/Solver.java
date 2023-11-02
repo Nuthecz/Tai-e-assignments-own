@@ -78,6 +78,17 @@ public abstract class Solver<Node, Fact> {
 
     protected void initializeForward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         // TODO - finish me
+        // 初始化最开始的 BB
+        result.setOutFact(cfg.getEntry(), analysis.newBoundaryFact(cfg));
+        // 这条语句需要添加, 否则就是空指针异常，这里不太了解为什么 Entry 的 IN 也需要初始化一下
+        result.setInFact(cfg.getEntry(), analysis.newBoundaryFact(cfg));
+        // 初始化每个语句的 IN 和 OUT
+        for(Node node: cfg.getNodes()){
+            if(!cfg.isEntry(node)){
+                result.setInFact(node, analysis.newInitialFact());
+                result.setOutFact(node, analysis.newInitialFact());
+            }
+        }
     }
 
     protected void initializeBackward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
