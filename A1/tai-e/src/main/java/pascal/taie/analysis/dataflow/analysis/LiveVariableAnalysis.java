@@ -49,28 +49,23 @@ public class LiveVariableAnalysis extends
 
     @Override
     public SetFact<Var> newBoundaryFact(CFG<Stmt> cfg) {
-        /*
-         TODO - finish me
-         返回边界节点的向量，backwoard 的边界节点是 IN[exit] = 空
-        */
+        // TODO - finish me
+        //返回边界节点的向量，backward 的边界节点是 IN[exit] = 空
         return new SetFact<>();
     }
 
     @Override
     public SetFact<Var> newInitialFact() {
-        /*
-         TODO - finish me
-         返回初始化节点的向量，backwoard 的IN[B]=空
-        */
+        // TODO - finish me
+        // 返回初始化节点的向量，backward 的IN[B]=空
         return new SetFact<>();
     }
 
     @Override
     public void meetInto(SetFact<Var> fact, SetFact<Var> target) {
-        /*
-         TODO - finish me
-         target是OUT,将facts结合到target上
-        */
+        // TODO - finish me
+        // target是OUT,将facts结合到target上
+
         target.union(fact);
     }
 

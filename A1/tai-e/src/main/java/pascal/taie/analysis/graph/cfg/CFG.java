@@ -43,6 +43,7 @@ public interface CFG<N> extends Graph<N> {
     /**
      * @return the method this CFG represents.
      */
+
     JMethod getMethod();
 
     /**

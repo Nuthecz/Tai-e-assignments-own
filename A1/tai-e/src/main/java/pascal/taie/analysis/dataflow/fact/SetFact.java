@@ -36,6 +36,7 @@ import java.util.stream.Stream;
  *
  * @param <E> type of elements
  */
+// data-flow fact 指程序代码中不同的块包含的变量状态或属性等信息, 这些信息在代码的不同块之间传递
 public class SetFact<E> {
 
     protected final Set<E> set;
