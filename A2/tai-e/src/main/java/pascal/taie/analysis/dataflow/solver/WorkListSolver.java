@@ -38,12 +38,12 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
 
     @Override
     protected void doSolveForward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
-        // TODO - finish me
+        /* TODO - finish me */
         // 构造 WorkList 队列, 同时在构造中即可实现对于所有 BB 的添加, 使用队列保证从前往后
-        Queue<Node> WorkList = new ArrayDeque<>(cfg.getNodes());
-//        for (Node node:cfg) {
-//            WorkList.add(node);
-//        }
+        Queue<Node> WorkList = new ArrayDeque<>();
+        for (Node node:cfg) {
+            WorkList.add(node);
+        }
 
         while(!WorkList.isEmpty()){
             // 返回队列的最前端

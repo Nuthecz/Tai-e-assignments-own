@@ -49,7 +49,7 @@ public class ConstantPropagation extends
 
     @Override
     public CPFact newBoundaryFact(CFG<Stmt> cfg) {
-        // TODO - finish me
+        /* TODO - finish me */
         // 初始化每一个OUT节点向量为NAC类型
         CPFact fact = new CPFact();
         // 获得 IR(每个被处理方法) 的参数, 我理解这里是边界初始化, 所以都是简单赋值, 而不是其他语句一样进行计算
@@ -64,14 +64,14 @@ public class ConstantPropagation extends
 
     @Override
     public CPFact newInitialFact() {
-        // TODO - finish me
+        /* TODO - finish me */
         // 初始化边界节点向量, OUT[entry] = 空
         return new CPFact();
     }
 
     @Override
     public void meetInto(CPFact fact, CPFact target) {
-        // TODO - finish me
+        /* TODO - finish me */
         // 利用格上的 meet 方法进行实现, 提供了不同分支传递同一个变量的赋值的交汇处理
         // 这里 keySet 就是 val(x) 中的 x, 这里就是对于x变量赋值的交汇
         for (Var var : fact.keySet()) {
@@ -83,7 +83,7 @@ public class ConstantPropagation extends
      * Meets two Values.
      */
     public Value meetValue(Value v1, Value v2) {
-        // TODO - finish me
+        /* TODO - finish me */
         // 基于给出的格的案例进行编写, 这里我的理解 meetValue 就是对于上面传下来的对同一个变量的赋值的交汇
         // 首先判断存在 NAC 的情况
         if (v1.isNAC() || v2.isNAC()) {
@@ -103,7 +103,7 @@ public class ConstantPropagation extends
 
     @Override
     public boolean transferNode(Stmt stmt, CPFact in, CPFact out) {
-        // TODO - finish me
+        /* TODO - finish me */
         // 这里实现的是对于 statement 的处理, 即 BB 内部的数据流的处理
         if (stmt instanceof DefinitionStmt<?, ?>) {
             LValue lv = ((DefinitionStmt<?, ?>) stmt).getLValue();
@@ -145,20 +145,18 @@ public class ConstantPropagation extends
      * @return the resulting {@link Value}
      */
     public static Value evaluate(Exp exp, CPFact in) {
-        // TODO - finish me
+        /* TODO - finish me */
         // 这里是 transfer function 的右侧表达式的计算
+        // 定义最终的返回值
+        Value result = Value.getNAC();
         // 根据 Exp 接口子类的类型来进行处理
         if (exp instanceof IntLiteral) {
             return Value.makeConstant(((IntLiteral) exp).getValue());
         } else if (exp instanceof Var) {
             return in.get((Var) exp);
-        } else if (exp instanceof InvokeExp) {
+        } else if (exp instanceof InvokeExp){// 这里通过给的最后一个案例， 需要判断不是给定范围的情况
             return Value.getNAC();
-        }
-
-        // 定义最终的返回值
-        Value result = Value.getNAC();
-        if (exp instanceof BinaryExp) {
+        } else if (exp instanceof BinaryExp) {
             // 从二元表达式中获取两个操作数---> 获取 x
             Var op1 = ((BinaryExp) exp).getOperand1();
             Var op2 = ((BinaryExp) exp).getOperand2();
@@ -178,17 +176,9 @@ public class ConstantPropagation extends
                     } else if (op == ArithmeticExp.Op.MUL) {
                         result = Value.makeConstant(op1_val.getConstant() * op2_val.getConstant());
                     } else if (op == ArithmeticExp.Op.DIV) {
-                        if (op2_val.getConstant() == 0) {
-                            result = Value.getUndef();
-                        }
-                        else
-                            result = Value.makeConstant(op1_val.getConstant() / op2_val.getConstant());
+                        result = op2_val.getConstant()==0 ? Value.getUndef(): Value.makeConstant(op1_val.getConstant() / op2_val.getConstant());
                     } else if (op == ArithmeticExp.Op.REM) {
-                        if (op2_val.getConstant() == 0) {
-                            result = Value.getUndef();
-                        }
-                        else
-                            result = Value.makeConstant(op1_val.getConstant() % op2_val.getConstant());
+                        result = op2_val.getConstant()==0 ? Value.getUndef(): Value.makeConstant(op1_val.getConstant() % op2_val.getConstant());
                     }
                 } else if (exp instanceof BitwiseExp) {
                     if (op == BitwiseExp.Op.OR) {
@@ -224,12 +214,7 @@ public class ConstantPropagation extends
             }// f(y,z) = NAC
             else if (op1_val.isNAC() || op2_val.isNAC()) {
                 if (exp instanceof ArithmeticExp && (op == ArithmeticExp.Op.DIV || op == ArithmeticExp.Op.REM)) {
-                    if (op2_val.isConstant() && op2_val.getConstant() == 0) {
-                        result = Value.getUndef();
-                    } else
-                        result = Value.getNAC();
-                } else {
-                    result = Value.getNAC();
+                    result = (op2_val.isConstant() && op2_val.getConstant() == 0) ? Value.getUndef(): Value.getNAC();
                 }
             }// f(y,z) = UNDEF
         } else {
