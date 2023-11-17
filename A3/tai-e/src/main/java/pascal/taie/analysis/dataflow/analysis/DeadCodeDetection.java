@@ -22,6 +22,7 @@
 
 package pascal.taie.analysis.dataflow.analysis;
 
+import fj.P;
 import pascal.taie.analysis.MethodAnalysis;
 import pascal.taie.analysis.dataflow.analysis.constprop.CPFact;
 import pascal.taie.analysis.dataflow.analysis.constprop.ConstantPropagation;
@@ -44,10 +45,10 @@ import pascal.taie.ir.stmt.AssignStmt;
 import pascal.taie.ir.stmt.If;
 import pascal.taie.ir.stmt.Stmt;
 import pascal.taie.ir.stmt.SwitchStmt;
+import pascal.taie.util.collection.Pair;
 
-import java.util.Comparator;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
+import java.util.concurrent.locks.Condition;
 
 public class DeadCodeDetection extends MethodAnalysis {
 
@@ -70,7 +71,75 @@ public class DeadCodeDetection extends MethodAnalysis {
         // keep statements (dead code) sorted in the resulting set
         Set<Stmt> deadCode = new TreeSet<>(Comparator.comparing(Stmt::getIndex));
         // TODO - finish me
-        // Your task is to recognize dead code in ir and add it to deadCode
+        // Your task is to recognize dead code in ir and add it to deadCode、
+        Queue<Stmt> stmtQueue = new LinkedList<>();
+        Set<Stmt> visited = new HashSet<>();
+
+        // 将入口节点添加到队列和已访问集合中
+        Stmt entry = cfg.getEntry();
+        stmtQueue.add(cfg.getEntry());
+        visited.add(entry);
+        // cfg出发，提出了所有的不可达语句
+        while (!stmtQueue.isEmpty()) {
+            Stmt current = stmtQueue.poll();
+            // if 分支不可达
+            if (current instanceof If s) {
+                // 获取 if 中表达式的结果，evaluate用来处理当前表达式与输入值的返回结果
+                Value ConditionValue = ConstantPropagation.evaluate(s.getCondition(), constants.getInFact(current));
+                if (ConditionValue.isConstant()) {
+                    // 如果是常量，判断是否有可达分支
+                    for (Edge<Stmt> edge : cfg.getOutEdgesOf(s)) {
+                        // 判断 if 可达语句
+                        if ((ConditionValue.getConstant() == 1 && edge.getKind() == Edge.Kind.IF_TRUE) ||
+                                ConditionValue.getConstant() == 0 && edge.getKind() == Edge.Kind.IF_FALSE) {
+                            // 满足if，跳转到目标语句，同时目标语句设置已被访问
+                            current = edge.getTarget();
+                            visited.add(current);
+                        }
+                    }
+                }
+            }
+            // switch 分支不可达
+            if (current instanceof SwitchStmt s) {
+                Value ConditionValue = ConstantPropagation.evaluate(s.getVar(), constants.getInFact(current));
+                if(ConditionValue.isConstant()){
+                    // 判断是否有可达分支
+                    boolean flag = false;
+                    // 获取所有的 case
+                    for (Pair<Integer, Stmt> pair : s.getCaseTargets()){
+                        if (ConditionValue.getConstant() == pair.first()) {
+                            flag = true;
+                            current = pair.second();
+                            visited.add(current);
+                        }
+                    }
+                    // 如果没有可达分支，将 default 加入队列
+                    if (!flag) {
+                        current = s.getDefaultTarget();
+                        visited.add(current);
+                    }
+                }
+            }
+
+            // 无用赋值
+            if(current instanceof AssignStmt<?,?> s && s.getLValue() instanceof Var var){
+                // 如果当前变量不在活跃变量中，且右值没有副作用，这个时候才能进行删除
+                if (!liveVars.getResult(s).contains(var) && hasNoSideEffect(s.getRValue())) {
+                    visited.remove(s);
+                }
+            }
+            // 将所有未访问的后继节点添加到队列中
+            for (Stmt succ : cfg.getSuccsOf(current)) {
+                if (!visited.contains(succ)) {
+                    stmtQueue.add(succ);
+                    visited.add(succ);
+                }
+            }
+        }
+        // 去除所有可达语句，剩下的就是不可达语句，注意去除出口节点
+        deadCode.addAll(cfg.getNodes());
+        deadCode.removeAll(visited);
+        deadCode.remove(cfg.getExit());
         return deadCode;
     }
 

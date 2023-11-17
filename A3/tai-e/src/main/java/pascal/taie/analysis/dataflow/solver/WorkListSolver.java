@@ -22,9 +22,13 @@
 
 package pascal.taie.analysis.dataflow.solver;
 
+import fj.P;
 import pascal.taie.analysis.dataflow.analysis.DataflowAnalysis;
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
 import pascal.taie.analysis.graph.cfg.CFG;
+
+import java.util.ArrayDeque;
+import java.util.Queue;
 
 class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
 
@@ -34,11 +38,49 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
 
     @Override
     protected void doSolveForward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
-        // TODO - finish me
+        /* TODO - finish me */
+        Queue<Node> WorkList = new ArrayDeque<>(cfg.getNodes());
+        while(!WorkList.isEmpty()){
+            Node BasicNode = WorkList.poll();
+            if(cfg.isEntry(BasicNode)) continue;
+            Fact in  = result.getInFact(BasicNode);
+            Fact out = result.getOutFact(BasicNode);
+
+            for(Node PreNode: cfg.getPredsOf(BasicNode)){
+                analysis.meetInto(result.getOutFact(PreNode), in);
+            }
+
+            if(!analysis.transferNode(BasicNode, in, out)){
+                for(Node SucNode: cfg.getSuccsOf(BasicNode)){
+                    if(!WorkList.contains(SucNode)){
+                        WorkList.add(SucNode);
+                    }
+                }
+            }
+        }
     }
 
     @Override
     protected void doSolveBackward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
-        // TODO - finish me
+        /* TODO - finish me */
+        Queue<Node> WorkList = new ArrayDeque<>(cfg.getNodes());
+        while(!WorkList.isEmpty()){
+            Node BasicNode = WorkList.poll();
+            if(cfg.isExit(BasicNode)) continue;
+            Fact in  = result.getInFact(BasicNode);
+            Fact out = result.getOutFact(BasicNode);
+
+            for(Node SucNode: cfg.getSuccsOf(BasicNode)){
+                analysis.meetInto(result.getInFact(SucNode), out);
+            }
+
+            if(analysis.transferNode(BasicNode, in, out)){
+                for(Node PreBlock: cfg.getPredsOf(BasicNode)){
+                    if(!WorkList.contains(PreBlock)){
+                        WorkList.add(PreBlock);
+                    }
+                }
+            }
+        }
     }
 }
