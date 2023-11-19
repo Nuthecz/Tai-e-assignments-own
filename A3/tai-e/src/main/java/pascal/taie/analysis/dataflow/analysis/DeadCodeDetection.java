@@ -92,7 +92,7 @@ public class DeadCodeDetection extends MethodAnalysis {
                         // 判断 if 可达语句
                         if ((ConditionValue.getConstant() == 1 && edge.getKind() == Edge.Kind.IF_TRUE) ||
                                 ConditionValue.getConstant() == 0 && edge.getKind() == Edge.Kind.IF_FALSE) {
-                            // 满足if，跳转到目标语句，同时目标语句设置已被访问
+                            // 满足if，跳转到目标语句，同时目标语句设置已被访问，这里跳过了不可达语句
                             current = edge.getTarget();
                             visited.add(current);
                         }
