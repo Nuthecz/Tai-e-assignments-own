@@ -94,7 +94,7 @@ public class ConstantPropagation extends
             return v1.isUndef() ? v2 : v1;
         }
         // 余下就都是 constant 的情况了
-        if (v1.getConstant() == v2.getConstant()) {
+        if (v1.equals(v2)) {
             return Value.makeConstant(v1.getConstant());
         }
         // 两个常量不同的情况, 返回 NAC
@@ -217,8 +217,9 @@ public class ConstantPropagation extends
                     result = (op2_val.isConstant() && op2_val.getConstant() == 0) ? Value.getUndef(): Value.getNAC();
                 }
             }// f(y,z) = UNDEF
-        } else {
-            result = Value.getUndef();
+            else {
+                result = Value.getUndef();
+            }
         }
         return result;
     }
