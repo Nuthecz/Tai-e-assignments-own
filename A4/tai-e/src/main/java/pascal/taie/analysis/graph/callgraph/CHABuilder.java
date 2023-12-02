@@ -51,7 +51,7 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
     private CallGraph<Invoke, JMethod> buildCallGraph(JMethod entry) {
         DefaultCallGraph callGraph = new DefaultCallGraph();
         callGraph.addEntryMethod(entry);
-        // TODO - finish me
+        /* TODO - finish me */
         Queue<JMethod> WorkList = new ArrayDeque<>();
         WorkList.add(entry);
         while(!WorkList.isEmpty()){
@@ -78,11 +78,15 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
         /* TODO - finish me */
         // 维护结果集，就是Resolve中的 T
         Set<JMethod> possibleTarGet = new HashSet<>();
+        // methodRef包含了调用点所调用的目标方法的签名信息
         MethodRef methodRef = callSite.getMethodRef();
         switch (CallGraphs.getCallKind(callSite)){
             case STATIC:
             case SPECIAL:// 调用静态方法或者私有方法，直接dispathc寻找对应的方法
-                possibleTarGet.add(dispatch(methodRef.getDeclaringClass(),methodRef.getSubsignature()));
+                JMethod method = dispatch(methodRef.getDeclaringClass(),methodRef.getSubsignature());
+                // 首先判定是否找到了对应的方法，如果找到了就将其加入到结果集中
+                if(method != null)
+                    possibleTarGet.add(method);
                 break;
             case VIRTUAL:
             case INTERFACE:// 调用虚方法或者接口方法，需要根据继承关系进行查找
@@ -90,13 +94,16 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
                 jClassQueue.add(methodRef.getDeclaringClass());
                 while(!jClassQueue.isEmpty()){
                     JClass jClass = jClassQueue.poll();
-                    JMethod method = dispatch(jClass, methodRef.getSubsignature());
+                    method = dispatch(jClass, methodRef.getSubsignature());
                     // 如果找到了对应的方法，就将其加入到结果集中
                     if(method != null)
                         possibleTarGet.add(method);
-                    // 将该类的子类加入到队列中
+                    // 将该类(jClass)的所有继承关系加入到队列中--->不能保证jClass是一个类，而不是接口
                     jClassQueue.addAll(hierarchy.getDirectSubclassesOf(jClass));
+                    jClassQueue.addAll(hierarchy.getDirectSubinterfacesOf(jClass));
+                    jClassQueue.addAll(hierarchy.getDirectImplementorsOf(jClass));
                 }
+                break;
         }
         return possibleTarGet;
     }

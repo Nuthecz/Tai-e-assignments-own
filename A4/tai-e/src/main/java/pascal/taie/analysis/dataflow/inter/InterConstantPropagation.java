@@ -24,6 +24,7 @@ package pascal.taie.analysis.dataflow.inter;
 
 import pascal.taie.analysis.dataflow.analysis.constprop.CPFact;
 import pascal.taie.analysis.dataflow.analysis.constprop.ConstantPropagation;
+import pascal.taie.analysis.dataflow.analysis.constprop.Value;
 import pascal.taie.analysis.graph.cfg.CFG;
 import pascal.taie.analysis.graph.cfg.CFGBuilder;
 import pascal.taie.analysis.graph.icfg.CallEdge;
@@ -37,6 +38,8 @@ import pascal.taie.ir.exp.Var;
 import pascal.taie.ir.stmt.Invoke;
 import pascal.taie.ir.stmt.Stmt;
 import pascal.taie.language.classes.JMethod;
+
+import java.util.List;
 
 /**
  * Implementation of interprocedural constant propagation for int values.
@@ -76,37 +79,81 @@ public class InterConstantPropagation extends
 
     @Override
     protected boolean transferCallNode(Stmt stmt, CPFact in, CPFact out) {
-        // TODO - finish me
-        return false;
+        /* TODO - finish me */
+        return out.copyFrom(in);
     }
 
     @Override
     protected boolean transferNonCallNode(Stmt stmt, CPFact in, CPFact out) {
-        // TODO - finish me
-        return false;
+        /* TODO - finish me */
+        // 过程间非调用点，使用常量分析的transferNode
+        return cp.transferNode(stmt, in, out);
     }
 
     @Override
     protected CPFact transferNormalEdge(NormalEdge<Stmt> edge, CPFact out) {
-        // TODO - finish me
-        return null;
+        /* TODO - finish me */
+        // NormalEdge与过程间调用无关，经过transferNode后不发生改变
+        return out;
     }
 
     @Override
     protected CPFact transferCallToReturnEdge(CallToReturnEdge<Stmt> edge, CPFact out) {
         // TODO - finish me
-        return null;
+        // edge.getSource()返回的是这条边的源节点，即调用点
+        Stmt callStmt = edge.getSource();
+        // 如果调用点是方法调用语句(Invoke类型)
+        if(callStmt instanceof Invoke callSite){
+            Var var =  callSite.getLValue();
+            // 删除掉调用点的左值，之后返回
+            if(var != null){
+                CPFact tmp = out.copy();
+                tmp.remove(var);
+                return tmp;
+            }
+        }
+        // 调用点不是方法调用语句，直接等同于transferNormalEdge
+        return out;
     }
 
     @Override
     protected CPFact transferCallEdge(CallEdge<Stmt> edge, CPFact callSiteOut) {
-        // TODO - finish me
-        return null;
+        /* TODO - finish me */
+        // 这里如果不是方法调用语句，直接返回空值，即不起作用
+        CPFact tmp = new CPFact();
+        // 查边的源节点是否是一个方法调用语句
+        if(edge.getSource() instanceof Invoke callSite){
+            // 获取调用点的参数列表
+            List<Var> args = callSite.getInvokeExp().getArgs();
+            for(int i = 0; i < args.size(); i++){
+                // 获取被调用方法的参数列表
+                Var param = edge.getCallee().getIR().getParam(i);
+                // 更新tmp中的参数信息
+                tmp.update(param, callSiteOut.get(args.get(i)));
+            }
+        }
+        return tmp;
     }
 
     @Override
     protected CPFact transferReturnEdge(ReturnEdge<Stmt> edge, CPFact returnOut) {
         // TODO - finish me
-        return null;
+        // 这里如果不是方法调用语句，直接返回空值，即不起作用
+        CPFact tmp = new CPFact();
+        if(edge.getSource() instanceof Invoke callSite){
+            // 获取调用点的左值
+            Var var = callSite.getLValue();
+            // 如果左值不为空，就将返回值加入到tmp中
+            if(var != null){
+                Value retval = Value.getUndef();
+                // 获取被调用函数的返回值
+                for(Var retvar: edge.getReturnVars()){
+                    // 使用过程内的meetValue函数进行合并
+                    retval = cp.meetValue(retval, returnOut.get(retvar));
+                }
+                tmp.update(var, retval);
+            }
+        }
+        return tmp;
     }
 }
