@@ -57,6 +57,7 @@ class WorkList {
     /**
      * Represents entries in the work list.
      * Each entry consists of a pointer and a points-to set.
+     * 
      */
     record Entry(Pointer pointer, PointsToSet pointsToSet) {
     }
