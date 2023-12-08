@@ -140,7 +140,7 @@ public class InterConstantPropagation extends
         // TODO - finish me
         // 这里如果不是方法调用语句，直接返回空值，即不起作用
         CPFact tmp = new CPFact();
-        if(edge.getSource() instanceof Invoke callSite){
+        if(edge.getCallSite() instanceof Invoke callSite){
             // 获取调用点的左值
             Var var = callSite.getLValue();
             // 如果左值不为空，就将返回值加入到tmp中

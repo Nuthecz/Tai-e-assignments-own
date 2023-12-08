@@ -57,8 +57,8 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
         while(!WorkList.isEmpty()){
             JMethod method = WorkList.poll();
             // 添加为可达方法
-            if(!callGraph.reachableMethods.contains(method))
-                callGraph.addReachableMethod(method);
+            if(callGraph.reachableMethods.contains(method)) continue;
+            callGraph.addReachableMethod(method);
             // 遍历该方法的调用语句(通过方法中调用点来获取)，将调用的方法加入到队列中
             for(Invoke callSite: callGraph.getCallSitesIn(method)){
                 Set<JMethod> possibleCallees = resolve(callSite);
@@ -80,10 +80,11 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
         Set<JMethod> possibleTarGet = new HashSet<>();
         // methodRef包含了调用点所调用的目标方法的签名信息
         MethodRef methodRef = callSite.getMethodRef();
+        JMethod method;
         switch (CallGraphs.getCallKind(callSite)){
             case STATIC:
             case SPECIAL:// 调用静态方法或者私有方法，直接dispathc寻找对应的方法
-                JMethod method = dispatch(methodRef.getDeclaringClass(),methodRef.getSubsignature());
+                method = dispatch(methodRef.getDeclaringClass(), methodRef.getSubsignature());
                 // 首先判定是否找到了对应的方法，如果找到了就将其加入到结果集中
                 if(method != null)
                     possibleTarGet.add(method);
@@ -118,7 +119,8 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
         /* TODO - finish me */
         // 根据子签名返回该类中声明的对应方法，这是最后的递归出口
         JMethod method =  jclass.getDeclaredMethod(subsignature);
-        if(method != null) return method;
+        // 这里需要注意method不是抽象方法，否则就不需要递归到父类中查找了
+        if(method != null && !method.isAbstract()) return method;
 
         // 根据签名递归到父类中查找对应方法
         JClass jClass = jclass.getSuperClass();

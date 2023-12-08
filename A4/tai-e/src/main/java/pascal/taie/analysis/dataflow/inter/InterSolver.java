@@ -23,7 +23,9 @@
 package pascal.taie.analysis.dataflow.inter;
 
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
+import pascal.taie.analysis.graph.callgraph.Edge;
 import pascal.taie.analysis.graph.icfg.ICFG;
+import pascal.taie.analysis.graph.icfg.ICFGEdge;
 import pascal.taie.util.collection.SetQueue;
 
 import java.util.Queue;
@@ -59,10 +61,36 @@ class InterSolver<Method, Node, Fact> {
     }
 
     private void initialize() {
-        // TODO - finish me
+        /* TODO - finish me */
+        for(Node node : icfg) {
+            result.setInFact(node, analysis.newInitialFact());
+            result.setOutFact(node, analysis.newInitialFact());
+        }
+        // 遍历icfg的所有方法，将方法的入口节点的outFact设置为newBoundaryFact
+        for(Method method : icfg.entryMethods().toList()){
+            Node entry = icfg.getEntryOf(method);
+            result.setOutFact(entry, analysis.newBoundaryFact(entry));
+        }
     }
 
     private void doSolve() {
         // TODO - finish me
+        workList = new SetQueue<>();
+        // 将所有的方法的入口节点加入到workList中
+        workList.addAll(icfg.getNodes());
+        while(!workList.isEmpty()){
+            Node BasicNode = workList.poll();
+            Fact in = result.getInFact(BasicNode);
+            Fact out = result.getOutFact(BasicNode);
+            // 对于每一个入边，将其meet到in中
+            for(ICFGEdge<Node> inEdge: icfg.getInEdgesOf(BasicNode)){
+                analysis.meetInto(analysis.transferEdge(inEdge, result.getOutFact(inEdge.getSource())), in);
+            }
+
+            if(analysis.transferNode(BasicNode, in, out)){
+                workList.addAll(icfg.getSuccsOf(BasicNode));
+            }
+
+        }
     }
 }
