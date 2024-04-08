@@ -42,19 +42,20 @@ public class _1TypeSelector implements ContextSelector {
 
     @Override
     public Context selectContext(CSCallSite callSite, JMethod callee) {
-        // TODO - finish me
-        return null;
+        /* TODO - finish me */
+        return callSite.getContext();
     }
 
     @Override
     public Context selectContext(CSCallSite callSite, CSObj recv, JMethod callee) {
-        // TODO - finish me
-        return null;
+        /* TODO - finish me */
+        // getContainerType return the type containing the allocation site of this object
+        return ListContext.make(recv.getObject().getContainerType());
     }
 
     @Override
     public Context selectHeapContext(CSMethod method, Obj obj) {
-        // TODO - finish me
-        return null;
+        /* TODO - finish me */
+        return getEmptyContext();
     }
 }
