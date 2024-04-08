@@ -40,8 +40,6 @@ import pascal.taie.language.type.Type;
 
 class Solver {
 
-    private static final Logger logger = LogManager.getLogger(Solver.class);
-
     private final HeapModel heapModel;
 
     private DefaultCallGraph callGraph;
@@ -106,7 +104,7 @@ class Solver {
             // Allocation-Site Abstraction
             PointsToSet pointsToSet = new PointsToSet(heapModel.getObj(stmt));
             workList.addEntry(pointer, pointsToSet);
-            return null;
+            return StmtVisitor.super.visit(stmt);
         }
         // 2. Copy x = y
         @Override
@@ -124,7 +122,7 @@ class Solver {
             JField f = stmt.getFieldRef().resolve();
             Var x = stmt.getLValue();
             addPFGEdge(pointerFlowGraph.getStaticField(f), pointerFlowGraph.getVarPtr(x));
-            return null;
+            return StmtVisitor.super.visit(stmt);
         }
         // 4. x.f = y
         @Override
@@ -133,7 +131,7 @@ class Solver {
             JField f = stmt.getFieldRef().resolve();
             Var y = stmt.getRValue();
             addPFGEdge(pointerFlowGraph.getVarPtr(y), pointerFlowGraph.getStaticField(f));
-            return null;
+            return StmtVisitor.super.visit(stmt);
         }
         // 5. y = x.m(...) 静态方法处理
         @Override
@@ -143,7 +141,7 @@ class Solver {
                 JMethod m = methodRef.getDeclaringClass().getDeclaredMethod(methodRef.getSubsignature());
                 processEachCall(stmt, m);
             }
-            return null;
+            return StmtVisitor.super.visit(stmt);
         }
     }
 
@@ -153,7 +151,10 @@ class Solver {
     private void addPFGEdge(Pointer source, Pointer target) {
         /* TODO - finish me */
         if (pointerFlowGraph.addEdge(source, target)) {
-            workList.addEntry(target, source.getPointsToSet());
+            // 这个判断是在做A6的时候意识到的，但是不加这个判断也通过了Oj，怀疑没有对这个进行检测或者 为空可以不关心(bushi)
+            if (!source.getPointsToSet().isEmpty()) {
+                workList.addEntry(target, source.getPointsToSet());
+            }
         }
     }
 
@@ -217,7 +218,7 @@ class Solver {
         pointsToSet.forEach(obj -> {
             if (pointer.getPointsToSet().addObject(obj)){
                 delta.addObject(obj);
-                pointer.getPointsToSet().addObject(obj);
+//                pointer.getPointsToSet().addObject(obj);
             }
         });
         // 3. foreach m in succ(n) do
@@ -239,7 +240,7 @@ class Solver {
                 Var param = m.getIR().getParam(i);
                 addPFGEdge(pointerFlowGraph.getVarPtr(arg), pointerFlowGraph.getVarPtr(param));
             }
-            // 4. add the edge (x, m_ret) to PFG
+            // 4. add the edge (m_ret, r) to PFG
             if (x.getLValue() != null) { // judge the rev is not exist
                 m.getIR().getReturnVars().forEach(m_ret -> {
                     addPFGEdge(pointerFlowGraph.getVarPtr(m_ret), pointerFlowGraph.getVarPtr(x.getLValue()));

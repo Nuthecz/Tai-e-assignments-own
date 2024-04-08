@@ -150,8 +150,8 @@ public class InterConstantPropagation extends
                 for(Var retvar: edge.getReturnVars()){
                     // 使用过程内的meetValue函数进行合并
                     retval = cp.meetValue(retval, returnOut.get(retvar));
+                    tmp.update(var, retval);
                 }
-                tmp.update(var, retval);
             }
         }
         return tmp;
