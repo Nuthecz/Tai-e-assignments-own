@@ -112,7 +112,7 @@ public class ConstantPropagation extends
             if (lv instanceof Var && canHoldInt((Var) lv)) {
                 CPFact tmp = in.copy();
                 // evaluate 用来处理右侧变量与这个 BB 的 IN 的交汇
-                tmp.update((Var) lv, evaluate(rv, in));
+                tmp.update((Var) lv, evaluate(rv, tmp));
                 return out.copyFrom(tmp);
             }
         }
@@ -172,7 +172,7 @@ public class ConstantPropagation extends
                     if (op == ArithmeticExp.Op.ADD) {
                         result = Value.makeConstant(op1_val.getConstant() + op2_val.getConstant());
                     } else if (op == ArithmeticExp.Op.SUB) {
-                        result = Value.makeConstant(op1_val.getConstant() - op2_val.getConstant());
+                            result = Value.makeConstant(op1_val.getConstant() - op2_val.getConstant());
                     } else if (op == ArithmeticExp.Op.MUL) {
                         result = Value.makeConstant(op1_val.getConstant() * op2_val.getConstant());
                     } else if (op == ArithmeticExp.Op.DIV) {

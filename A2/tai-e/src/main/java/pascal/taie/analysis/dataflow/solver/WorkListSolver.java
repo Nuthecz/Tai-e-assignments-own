@@ -40,8 +40,11 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
     protected void doSolveForward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         /* TODO - finish me */
         // 构造 WorkList 队列, 同时在构造中即可实现对于所有 BB 的添加, 使用队列保证从前往后
-        Queue<Node> WorkList = new ArrayDeque<>();
-        for (Node node:cfg) {
+        ArrayDeque<Node> WorkList = new ArrayDeque<>();
+        for (Node node: cfg) {
+            if (cfg.isEntry(node)) {
+                continue;
+            }
             WorkList.add(node);
         }
 
@@ -51,14 +54,13 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
             Fact in = result.getInFact(BasicNode);
             Fact out = result.getOutFact(BasicNode);
 
-
             // 实现 meetInto 和 transferNode 的迭代过程
             for(Node PreNode: cfg.getPredsOf(BasicNode)){
                 analysis.meetInto(result.getOutFact(PreNode), in);
             }
 
             // 这里通过 transferNode 的判断, 来简单处理 old_out 与 当前 out 是否相同, 进而判断是否添加前驱节点
-            if(!analysis.transferNode(BasicNode, in, out)){
+            if(analysis.transferNode(BasicNode, in, out)){
                 for(Node SucNode: cfg.getSuccsOf(BasicNode)){
                     if(!WorkList.contains(SucNode))
                         WorkList.add(SucNode);
