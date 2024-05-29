@@ -160,12 +160,8 @@ public class InterConstantPropagation extends
             DataflowResult<Stmt, CPFact> dataflowResult = solver.getResult();
             // 这里设置为 Undef，可以在 meetValue 中直接赋值为第二个 Value 的值
             Value resValue = Value.getUndef();
-            // 不是需要处理的语句，直接跳过
-            if (!(lValue instanceof Var lVar && ConstantPropagation.canHoldInt(lVar))) {
-                return out.copyFrom(copyIn);
-            }
-            if (stmt instanceof LoadField loadField) {
-                CPFact gen = new CPFact();
+            // 这里使用 canHoldInt 进行判断时只用对 load 进行判断，之前对于 load 和 store 都进行判断会跳过某些处理而不能通过样例
+            if (stmt instanceof LoadField loadField && lValue instanceof Var lVar && ConstantPropagation.canHoldInt(lVar)) {
                 // 处理 loadField 语句，把对应的 store 的 rhs 用 meet 计算出来，赋给 load 的 lhs
                 JField jField = loadField.getFieldRef().resolve();
                 if (loadField.isStatic()) {   // 静态字段的load，直接在 staticFieldStore 获取别名然后进行 meetValue 操作
@@ -183,8 +179,10 @@ public class InterConstantPropagation extends
                         }
                     }
                 }
-                // 对 copyIn 进行更新，以便下面与 out 比较判断是否改动
-                copyIn.update(lVar, resValue);
+                // 若是满足 load 的条件，对 copyIn 进行更新，所以下面与 out 比较的判断因为存在改动而返回 true
+                if(resValue != Value.getUndef()){
+                    copyIn.update(lVar, resValue);
+                }
                 return out.copyFrom(copyIn);
             } else if (stmt instanceof StoreField storeField) {
                 // 判断 y.f 的值是否有变化，有变化就把对应的 load 加入到 WorkList 中，其余按照过程内常量传播处理
@@ -206,9 +204,11 @@ public class InterConstantPropagation extends
                         }
                     }
                 }
-            } else if (stmt instanceof LoadArray loadArray) {
+                // 这里 StoreField 和 StoreArray 都加上这里的 return 才可以通过样例，而之前通过最后的 return 返回就是错的
+                // 由此认为 Store 语句的 cp.transferNode 的处理在 if 语句块中进行处理，而最后的 return 则是直接返回了 copyFrom 的结果，两者是不同的
+                return isChange;
+            } else if (stmt instanceof LoadArray loadArray && lValue instanceof Var lVar && ConstantPropagation.canHoldInt(lVar)) {
                 // load 的操作一样，寻找别名的 store 操作，然后把 store 的 rhs meet 计算，赋值给 load 的 lhs
-                CPFact gen = new CPFact();
                 Var base = loadArray.getArrayAccess().getBase();
                 Value loadIndexValue = in.get(loadArray.getArrayAccess().getIndex());
                 for (Var var : allVarAliases.getOrDefault(base, new HashSet<>())) {
@@ -219,7 +219,9 @@ public class InterConstantPropagation extends
                         }
                     }
                 }
-                copyIn.update(lVar, resValue);
+                if(resValue != Value.getUndef()){
+                    copyIn.update(lVar, resValue);
+                }
                 return out.copyFrom(copyIn);
             } else if (stmt instanceof StoreArray storeArray) {
                 boolean isChange = cp.transferNode(stmt, in, out);
@@ -231,9 +233,10 @@ public class InterConstantPropagation extends
                         });
                     }
                 }
+                return isChange;
             }
         }
-        // 不涉及别名的语句，或者涉及的为 store 语句，采用过程内常量分析
+        // 不涉及别名的语句，采用过程内常量分析
         return cp.transferNode(stmt, in, out);
     }
 

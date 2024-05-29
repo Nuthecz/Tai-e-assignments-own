@@ -93,10 +93,10 @@ public class ConstantPropagation extends
     @Override
     public boolean transferNode(Stmt stmt, CPFact in, CPFact out) {
         /* TODO - finish me */
-        if (stmt instanceof DefinitionStmt<?, ?>) {
-            LValue lv = ((DefinitionStmt<?, ?>) stmt).getLValue();
-            RValue rv = ((DefinitionStmt<?, ?>) stmt).getRValue();
-            if (lv instanceof Var && canHoldInt((Var) lv)) {
+        if (stmt instanceof DefinitionStmt<?, ?> definitionStmt) {
+            LValue lv = definitionStmt.getLValue();
+            RValue rv = definitionStmt.getRValue();
+            if (lv instanceof Var lVar && canHoldInt(lVar)) {
                 CPFact tmp = in.copy();
                 tmp.update((Var) lv, evaluate(rv, in));
                 return out.copyFrom(tmp);
