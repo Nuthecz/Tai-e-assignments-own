@@ -82,17 +82,23 @@ class InterSolver<Method, Node, Fact> {
         // 将所有的方法的入口节点加入到workList中
         workList.addAll(icfg.getNodes());
         while (!workList.isEmpty()) {
-            Node BasicNode = workList.poll();
-            Fact in = result.getInFact(BasicNode);
-            Fact out = result.getOutFact(BasicNode);
+            Node basicNode = workList.poll();
+            Fact in = result.getInFact(basicNode);
+            Fact out = result.getOutFact(basicNode);
             // 对于每一个入边，将其meet到in中
-            for (ICFGEdge<Node> inEdge : icfg.getInEdgesOf(BasicNode)) {
+            for (ICFGEdge<Node> inEdge : icfg.getInEdgesOf(basicNode)) {
                 analysis.meetInto(analysis.transferEdge(inEdge, result.getOutFact(inEdge.getSource())), in);
             }
 
-            if (analysis.transferNode(BasicNode, in, out)) {
-                workList.addAll(icfg.getSuccsOf(BasicNode));
+            if (analysis.transferNode(basicNode, in, out)) {
+                workList.addAll(icfg.getSuccsOf(basicNode));
             }
+        }
+    }
+
+    public void addWorkList(Node node){
+        if(!workList.contains(node)){
+            workList.add(node);
         }
     }
 }
