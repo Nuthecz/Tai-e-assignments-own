@@ -203,12 +203,7 @@ public class Solver {
         @Override
         public Void visit(Invoke stmt) {
             if (!stmt.isStatic()) return null;
-            MethodRef methodRef = stmt.getMethodRef();
-            JMethod method = methodRef.getDeclaringClass().getDeclaredMethod(methodRef.getSubsignature());
-            CSCallSite csCallSite = csManager.getCSCallSite(context, stmt);
-            Context c_t = contextSelector.selectContext(csCallSite, method);
-            CSMethod ctMethod = csManager.getCSMethod(c_t, method);// 这里需要与csMethod区分，csMethod指向的是当前的c
-            processEachCall(context, stmt, c_t, ctMethod);
+            processEachCall(stmt, context, null, null);
             return StmtVisitor.super.visit(stmt);
         }
     }
@@ -239,6 +234,8 @@ public class Solver {
             PointsToSet pts = entry.pointsToSet();
             // 2. get the Δ
             PointsToSet delta = propagate(n, pts);
+            // 检测 delta 中含有的 taint object，同时基于 "污点传播边" 向后继节点传播这些 taint object
+            taintAnalysis.propagate(n, delta);
             // 3. if n represents a variable x then
             if (n instanceof CSVar csVar) {
                 // 3.1 foreach oi in Δ do
@@ -269,7 +266,7 @@ public class Solver {
                         addPFGEdge(csManager.getCSVar(c, y), csManager.getArrayIndex(csObj));
                     });
                     // 3.1.5 foreach y = x.m(...) in S do
-                    processCall(csManager.getCSVar(c, x), csObj);
+                    processCall(csVar, csObj);   // csVar 等同于 csManager.getCSVar(c, x)
                 });
             }
         }
@@ -307,44 +304,64 @@ public class Solver {
     private void processCall(CSVar recv, CSObj recvObj) {
         // TODO - finish me
         // processCall -> processCall(c: x, c_': o_i)
-        // 1. foreach l: r = x.k(a1,…,an) ∈ S do
         Var var = recv.getVar();
-        var.getInvokes().forEach(x -> {
-            // 2. m = Dispatch(o_i, k)
-            JMethod m = resolveCallee(recvObj, x);
-            Var m_this = m.getIR().getThis();
-            // 3. c_t = Select(c, l, c_':o_i)
-            Context c = recv.getContext();
-            CSCallSite csCallSite = csManager.getCSCallSite(c, x);
-            Context c_t = contextSelector.selectContext(csCallSite, recvObj, m);
-            // 3. add <c_t: m_this, {c_': o_i}> to WL
-            workList.addEntry(csManager.getCSVar(c_t, m_this), PointsToSetFactory.make(recvObj));
-            // 4. get the c_t: m and process the call
-            CSMethod ctMethod = csManager.getCSMethod(c_t, m);
-            processEachCall(c, x, c_t, ctMethod);
+        Context context = recv.getContext();
+        // Dynamic 1. foreach l: r = x.k(a1,…,an) ∈ S do, x -> callSite
+        var.getInvokes().forEach(callSite -> {
+            processEachCall(callSite, context, recv, recvObj);
         });
     }
 
-    private void processEachCall(Context c, Invoke x, Context c_t, CSMethod ctMethod) {
-        // 1. get the c: l and c_t: m
-        CSCallSite callSite = csManager.getCSCallSite(c, x);
-        // 2. if c: l -> c_t: m is not in CG then
-        if (callGraph.addEdge(new Edge<>(CallGraphs.getCallKind(x), callSite, ctMethod))) {
-            // 3. add reachable(c_t: m)
+    private void processEachCall(Invoke callSite, Context context, CSVar recv, CSObj recvObj) {
+        JMethod jMethod = resolveCallee(recvObj, callSite);
+        // 忽略静态调用和动态调用以外的调用
+        if (jMethod == null) return;
+        CSCallSite csCallSite = csManager.getCSCallSite(context, callSite);
+        Context c_t;
+        if (recv == null) {   // 静态调用
+            // Static 1. c_t = select(c, l)
+            c_t = contextSelector.selectContext(csCallSite, jMethod);
+        } else {   // 动态调用
+            // Dynamic 2. c_t = Select(c, l, c_':o_i)
+            c_t = contextSelector.selectContext(csCallSite, recvObj, jMethod);
+            // Dynamic 3. m = Dispatch(o_i, k)
+            Var m_this = jMethod.getIR().getThis();
+            // Dynamic 4. add <c_t: m_this, {c_': o_i}> to WL
+            workList.addEntry(csManager.getCSVar(c_t, m_this), PointsToSetFactory.make(recvObj));
+        }
+        // All 1. get c_t: m
+        CSMethod ctMethod = csManager.getCSMethod(c_t, jMethod);
+        // All 2. if c: l -> c_t: m is not in CG then
+        if (callGraph.addEdge(new Edge<>(CallGraphs.getCallKind(callSite), csCallSite, ctMethod))) {
+            // All 3. add reachable(c_t: m)
             addReachable(ctMethod);
-            // 4. foreach c: ai = c_t: pi ∈ S do
-            for (int i = 0; i < x.getInvokeExp().getArgCount(); i++) {
-                Var arg = x.getInvokeExp().getArg(i);
+            // All 4. foreach c: ai = c_t: pi ∈ S do
+            for (int i = 0; i < callSite.getInvokeExp().getArgCount(); i++) {
+                Var arg = callSite.getInvokeExp().getArg(i);
                 Var param = ctMethod.getMethod().getIR().getParam(i);
-                addPFGEdge(csManager.getCSVar(c, arg), csManager.getCSVar(c_t, param));
+                addPFGEdge(csManager.getCSVar(context, arg), csManager.getCSVar(c_t, param));
             }
             // 5. add the edge (c_t: m_ret, c: r) to PFG
-            if (x.getLValue() != null) {
+            if (callSite.getLValue() != null) {
                 ctMethod.getMethod().getIR().getReturnVars().forEach(m_ret -> {
-                    addPFGEdge(csManager.getCSVar(c_t, m_ret), csManager.getCSVar(c, x.getLValue()));
+                    addPFGEdge(csManager.getCSVar(c_t, m_ret), csManager.getCSVar(context, callSite.getLValue()));
                 });
             }
+            // Taint 1. 若是该调用为 Source，则首先产生一个 taint object
+            // 之后增加 point(c: r) -> pointsToSet(t)，同时添加到 workList 中
+            PointsToSet pts = taintAnalysis.dealSource(callSite, jMethod);
+            if (pts != null) {
+                workList.addEntry(csManager.getCSVar(context, callSite.getLValue()), pts);
+            }
+            // Taint 2. 若是调用为 sink，则添加 sink 点，从而获得所有的 CSCallSite
+            taintAnalysis.dealSinkCallSite(csCallSite, jMethod);
+            // Taint 3. 对于污点的传播进行处理，根据三种不同的规则将 taint 从一些变量传播到另外一些变量中
+            taintAnalysis.dealTaintTransfer(csCallSite, jMethod, recv);
         }
+    }
+
+    public void addWorkList(Pointer pointer, PointsToSet pointsToSet) {
+        workList.addEntry(pointer, pointsToSet);
     }
 
     /**
